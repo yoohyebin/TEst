@@ -39,7 +39,7 @@ jobs:
 
           case "$GITHUB_AUTHOR" in
             "yoohyebin")
-              echo "JIRA_ASSIGNEE_ID=712020:c1f24576-8cad-4a29-a990-02eceb0167ff" >> $GITHUB_ENV
+              echo "JIRA_ASSIGNEE_ID=712020:7ca57986-fe55-494f-8995-4fbf2b586bd3" >> $GITHUB_ENV
               echo "HAS_ASSIGNEE=true" >> $GITHUB_ENV
               ;;
             "developer2")
