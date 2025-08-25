@@ -72,16 +72,8 @@ jobs:
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
           
           # 브랜치 생성
-          ISSUE_NUMBER="${{ steps.create.outputs.issue }}"
-          ISSUE_TITLE="${{ steps.issue-parser.outputs.issueparser_branch }}"
-          
-          if [ -z "$ISSUE_TITLE" ]; then
-            ISSUE_TITLE="feature"
-          fi
-          
-          # 특수문자 제거하여 안전한 브랜치명 생성
-          SAFE_BRANCH=$(echo "$ISSUE_TITLE" | sed 's/[^a-zA-Z0-9-]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g')
-          BRANCH_NAME="${ISSUE_NUMBER}-${SAFE_BRANCH}"
+          JIRA_ISSUE_NUMBER="${{ steps.create.outputs.issue }}"
+          BRANCH_NAME="feature/${JIRA_ISSUE_NUMBER}"
           
           echo "Creating branch: $BRANCH_NAME"
           git checkout -b "$BRANCH_NAME"
