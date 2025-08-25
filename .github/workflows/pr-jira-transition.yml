@@ -1,0 +1,92 @@
+name: PR Jira Transition
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - closed
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  jira-transition:
+    name: Update Jira issue status
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to Jira
+        uses: atlassian/gajira-login@v3
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+      
+      - name: Extract Jira Key from PR title
+        id: extract-key
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          echo "PR Title: $PR_TITLE"
+          
+          # JIRA-KEY 패턴 추출 (예: BTS-123, PRJ-456 등)
+          JIRA_KEY=$(echo "$PR_TITLE" | grep -oE '[A-Z]+-[0-9]+' | head -n1)
+          
+          if [ ! -z "$JIRA_KEY" ]; then
+            echo "Found Jira Key: $JIRA_KEY"
+            echo "JIRA_KEY=$JIRA_KEY" >> $GITHUB_OUTPUT
+            echo "HAS_JIRA_KEY=true" >> $GITHUB_OUTPUT
+          else
+            echo "No Jira Key found in PR title"
+            echo "HAS_JIRA_KEY=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Transition to In Review (PR opened/reopened)
+        if: steps.extract-key.outputs.HAS_JIRA_KEY == 'true' && (github.event.action == 'opened' || github.event.action == 'reopened')
+        uses: atlassian/gajira-transition@v3
+        with:
+          issue: ${{ steps.extract-key.outputs.JIRA_KEY }}
+          transition: '검토 중'  # Jira 워크플로우에 맞게 조정 필요
+      
+      - name: Transition to Done (PR merged)
+        if: steps.extract-key.outputs.HAS_JIRA_KEY == 'true' && github.event.pull_request.merged == true
+        uses: atlassian/gajira-transition@v3
+        with:
+          issue: ${{ steps.extract-key.outputs.JIRA_KEY }}
+          transition: '완료'  # Jira 워크플로우에 맞게 조정 필요
+      
+      - name: Transition back to In Progress (PR closed without merge)
+        if: steps.extract-key.outputs.HAS_JIRA_KEY == 'true' && github.event.action == 'closed' && github.event.pull_request.merged == false
+        uses: atlassian/gajira-transition@v3
+        with:
+          issue: ${{ steps.extract-key.outputs.JIRA_KEY }}
+          transition: '진행 중'  # Jira 워크플로우에 맞게 조정 필요
+      
+      - name: Add PR link to Jira issue
+        if: steps.extract-key.outputs.HAS_JIRA_KEY == 'true' && (github.event.action == 'opened' || github.event.action == 'reopened')
+        uses: atlassian/gajira-comment@v3
+        with:
+          issue: ${{ steps.extract-key.outputs.JIRA_KEY }}
+          comment: |
+            🔗 **Pull Request Created**
+            
+            **PR:** [${{ github.event.pull_request.title }}](${{ github.event.pull_request.html_url }})
+            **Author:** @${{ github.event.pull_request.user.login }}
+            **Branch:** `${{ github.event.pull_request.head.ref }}` → `${{ github.event.pull_request.base.ref }}`
+            
+            Status: 🔍 **검토 중*
+      
+      - name: Comment on PR with Jira link
+        if: steps.extract-key.outputs.HAS_JIRA_KEY == 'true' && github.event.action == 'opened'
+        uses: actions-cool/issues-helper@v3
+        with:
+          actions: 'create-comment'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            🎫 **Related Jira Issue:** [${{ steps.extract-key.outputs.JIRA_KEY }}](${{ secrets.JIRA_BASE_URL }}/browse/${{ steps.extract-key.outputs.JIRA_KEY }})
+            📊 **Status Updated:** 검토 중
+      
+      - name: Log action result
+        run: |
+          echo "🔄 Jira Transition Complete"
+          echo "PR Action: ${{ github.event.action }}"
+          echo "PR Merged: ${{ github.event.pull_request.merged }}"
+          echo "Jira Key: ${{ steps.extract-key.outputs.JIRA_KEY }}"
