@@ -111,6 +111,13 @@ jobs:
           else
             echo "issue=${{ steps.create-without-assignee.outputs.issue }}" >> $GITHUB_OUTPUT
           fi
+          
+      - name: Transition to In Progress
+        uses: atlassian/gajira-transition@v3
+        with:
+          issue: ${{ steps.create.outputs.issue }}
+          transition: '진행 중'
+          
       - name: Create branch with proper authentication
         run: |
           # Git 설정
