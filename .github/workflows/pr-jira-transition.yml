@@ -43,21 +43,21 @@ jobs:
         uses: atlassian/gajira-transition@v3
         with:
           issue: ${{ steps.extract-key.outputs.JIRA_KEY }}
-          transition: '검토 중'  # Jira 워크플로우에 맞게 조정 필요
+          transition: 'In Review'  # Jira 워크플로우에 맞게 조정 필요
       
       - name: Transition to Done (PR merged)
         if: steps.extract-key.outputs.HAS_JIRA_KEY == 'true' && github.event.pull_request.merged == true
         uses: atlassian/gajira-transition@v3
         with:
           issue: ${{ steps.extract-key.outputs.JIRA_KEY }}
-          transition: '완료'  # Jira 워크플로우에 맞게 조정 필요
+          transition: 'Done'  # Jira 워크플로우에 맞게 조정 필요
       
       - name: Transition back to In Progress (PR closed without merge)
         if: steps.extract-key.outputs.HAS_JIRA_KEY == 'true' && github.event.action == 'closed' && github.event.pull_request.merged == false
         uses: atlassian/gajira-transition@v3
         with:
           issue: ${{ steps.extract-key.outputs.JIRA_KEY }}
-          transition: '진행 중'  # Jira 워크플로우에 맞게 조정 필요
+          transition: 'In Progress'  # Jira 워크플로우에 맞게 조정 필요
       
       - name: Add PR link to Jira issue
         if: steps.extract-key.outputs.HAS_JIRA_KEY == 'true' && (github.event.action == 'opened' || github.event.action == 'reopened')
@@ -71,7 +71,7 @@ jobs:
             **Author:** @${{ github.event.pull_request.user.login }}
             **Branch:** `${{ github.event.pull_request.head.ref }}` → `${{ github.event.pull_request.base.ref }}`
             
-            Status: 🔍 **검토 중*
+            Status: 🔍 **In Review**
       
       - name: Comment on PR with Jira link
         if: steps.extract-key.outputs.HAS_JIRA_KEY == 'true' && github.event.action == 'opened'
@@ -82,7 +82,7 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
             🎫 **Related Jira Issue:** [${{ steps.extract-key.outputs.JIRA_KEY }}](${{ secrets.JIRA_BASE_URL }}/browse/${{ steps.extract-key.outputs.JIRA_KEY }})
-            📊 **Status Updated:** 검토 중
+            📊 **Status Updated:** In Review
       
       - name: Log action result
         run: |
@@ -90,3 +90,12 @@ jobs:
           echo "PR Action: ${{ github.event.action }}"
           echo "PR Merged: ${{ github.event.pull_request.merged }}"
           echo "Jira Key: ${{ steps.extract-key.outputs.JIRA_KEY }}"
+          
+          # 실행된 transition 로그
+          if [ "${{ github.event.action }}" == "opened" ] || [ "${{ github.event.action }}" == "reopened" ]; then
+            echo "Executed Transition: 31 (In Review → 검토 중)"
+          elif [ "${{ github.event.pull_request.merged }}" == "true" ]; then
+            echo "Executed Transition: 41 (완료)"
+          elif [ "${{ github.event.action }}" == "closed" ]; then
+            echo "Executed Transition: 21 (진행 중)"
+          fi
