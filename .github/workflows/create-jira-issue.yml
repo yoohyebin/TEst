@@ -30,6 +30,32 @@ jobs:
       - name: Log Issue Parser
         run: |
           echo 'Parent Key: ${{ steps.issue-parser.outputs.issueparser_parentKey }}'
+      - name: Map GitHub user to Jira assignee
+        id: map-user
+        run: |
+          GITHUB_USER="${{ github.event.issue.user.login }}"
+          echo "GitHub user: $GITHUB_USER"
+          
+          case "$GITHUB_USER" in
+            "yoohyebin")
+              echo "JIRA_ASSIGNEE_EMAIL=hyebinsla218@gmail.com" >> $GITHUB_ENV
+              echo "HAS_ASSIGNEE=true" >> $GITHUB_ENV
+              ;;
+            "developer2")
+              echo "JIRA_ASSIGNEE_EMAIL=dev2@company.com" >> $GITHUB_ENV
+              echo "HAS_ASSIGNEE=true" >> $GITHUB_ENV
+              ;;
+            "teamleader")
+              echo "JIRA_ASSIGNEE_EMAIL=leader@company.com" >> $GITHUB_ENV
+              echo "HAS_ASSIGNEE=true" >> $GITHUB_ENV
+              ;;
+            *)
+              echo "Unknown GitHub user: $GITHUB_USER, no assignment"
+              echo "HAS_ASSIGNEE=false" >> $GITHUB_ENV
+              ;;
+          esac
+          
+          echo "Assignee email: $JIRA_ASSIGNEE_EMAIL"
       - name: Convert markdown to Jira Syntax
         uses: peter-evans/jira2md@v1
         id: md2jira
@@ -37,10 +63,41 @@ jobs:
           input-text: |
             ### Github Issue Link
             - ${{ github.event.issue.html_url }}
+            
+            ### Created by
+            GitHub User: [${{ github.event.issue.user.login }}](${{ github.event.issue.user.html_url }})
+            
+            ### Issue Details
             ${{ github.event.issue.body }}
           mode: md2jira
-      - name: Create Issue
-        id: create
+      - name: Create Issue (with assignee)
+        id: create-with-assignee
+        if: env.HAS_ASSIGNEE == 'true'
+        uses: atlassian/gajira-create@v3
+        with:
+          project: BTS
+          issuetype: Task
+          summary: '${{ github.event.issue.title }}'
+          description: '${{ steps.md2jira.outputs.output-text }}'
+          fields: |
+            {
+              "parent": {
+                "key": "${{ steps.issue-parser.outputs.issueparser_parentKey }}"
+              },
+              "assignee": {
+                "accountId": "${{ env.JIRA_ASSIGNEE_ID }}"
+              }
+            }
+      - name: Debug assignee setting
+        if: env.HAS_ASSIGNEE == 'true'
+        run: |
+          echo "🔍 Debugging assignee setting:"
+          echo "Has assignee: ${{ env.HAS_ASSIGNEE }}"
+          echo "Assignee email: ${{ env.JIRA_ASSIGNEE_EMAIL }}"
+          echo "Created issue: ${{ steps.create-with-assignee.outputs.issue }}"
+      - name: Create Issue (without assignee)
+        id: create-without-assignee
+        if: env.HAS_ASSIGNEE == 'false'
         uses: atlassian/gajira-create@v3
         with:
           project: BTS
@@ -53,6 +110,14 @@ jobs:
                 "key": "${{ steps.issue-parser.outputs.issueparser_parentKey }}"
               }
             }
+      - name: Set issue number
+        id: create
+        run: |
+          if [ "${{ env.HAS_ASSIGNEE }}" == "true" ]; then
+            echo "issue=${{ steps.create-with-assignee.outputs.issue }}" >> $GITHUB_OUTPUT
+          else
+            echo "issue=${{ steps.create-without-assignee.outputs.issue }}" >> $GITHUB_OUTPUT
+          fi
       - name: Create branch with proper authentication
         run: |
           # Git 설정
@@ -81,4 +146,8 @@ jobs:
           actions: 'create-comment'
           token: ${{ secrets.GITHUB_TOKEN }}
           issue-number: ${{ github.event.issue.number }}
-          body: 'Jira Issue Created: [${{ steps.create.outputs.issue }}](${{ secrets.JIRA_BASE_URL }}/browse/${{ steps.create.outputs.issue }})'
+          body: |
+            🎫 **Jira Issue Created:** [${{ steps.create.outputs.issue }}](${{ secrets.JIRA_BASE_URL }}/browse/${{ steps.create.outputs.issue }})
+            🌿 **Branch Created:** `feature/${{ steps.create.outputs.issue }}`
+            👤 **Created by:** @${{ github.event.issue.user.login }}
+            ${{ env.HAS_ASSIGNEE == 'true' && format('📋 **Jira Assignee:** {0}', env.JIRA_ASSIGNEE_EMAIL) || '📋 **Jira Assignee:** Not assigned (unknown GitHub user)' }}
