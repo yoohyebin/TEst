@@ -143,4 +143,3 @@ jobs:
             🎫 **Jira Issue Created:** [${{ steps.create.outputs.issue }}](${{ secrets.JIRA_BASE_URL }}/browse/${{ steps.create.outputs.issue }})
             🌿 **Branch Created:** `feature/${{ steps.create.outputs.issue }}`
             👤 **Created by:** @${{ github.event.issue.user.login }}
-            ${{ env.HAS_ASSIGNEE == 'true' && format('📋 **Jira Assignee:** {0}', env.JIRA_ASSIGNEE_EMAIL) || '📋 **Jira Assignee:** Not assigned (unknown GitHub user)' }}
