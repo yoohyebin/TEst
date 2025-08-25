@@ -39,8 +39,7 @@ jobs:
 
           case "$GITHUB_AUTHOR" in
             "yoohyebin")
-              # 예: 혜빈님 Jira accountId
-              echo "JIRA_ASSIGNEE_ID=5e1234567890abcd12345678" >> $GITHUB_ENV
+              echo "JIRA_ASSIGNEE_ID=712020:c1f24576-8cad-4a29-a990-02eceb0167ff" >> $GITHUB_ENV
               echo "HAS_ASSIGNEE=true" >> $GITHUB_ENV
               ;;
             "developer2")
